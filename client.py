@@ -13,7 +13,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
-from config import Config
+from weather_vk_bot.core.config import Config
 from exceptions import (
     APIConnectionError,
     CityNotFoundError,
@@ -22,8 +22,15 @@ from exceptions import (
     OpenWeatherAPIError,
     RateLimitError,
 )
-from utils import format_pressure, format_temperature, format_visibility, format_wind_speed, safe_get
-from utils import validate_coordinates
+from .utils import (
+    format_pressure, 
+    format_temperature, 
+    format_visibility, 
+    format_wind_speed, 
+    safe_get,
+    validate_coordinates
+)
+
 
 
 class BaseWeatherClient(ABC):

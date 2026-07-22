@@ -34,6 +34,7 @@ class WeatherStates(BaseStateGroup):
     WAITING_CITY_FOR_FORECAST = "waiting_city_for_forecast"
     WAITING_CITY_FOR_DETAILS = "waiting_city_for_details"
     WAITING_GEO = "waiting_geo"
+    WAITING_CITY_FOR_TODAY = "waiting_city_for_today"
 
 
 def build_state_dispenser() -> ABCStateDispenser:

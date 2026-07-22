@@ -1,152 +1,139 @@
-"""Форматирование сообщений VK-бота погоды на русском языке."""
+"""Форматировщик сообщений для VK-бота."""
 
 from __future__ import annotations
-
+from datetime import datetime
 from typing import Any
 
+# Локализация дат
+WEEKDAYS: dict[int, str] = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
+MONTHS: dict[int, str] = {
+    1: "января", 2: "февраля", 3: "марта", 4: "апреля", 
+    5: "мая", 6: "июня", 7: "июля", 8: "августа", 
+    9: "сентября", 10: "октября", 11: "ноября", 12: "декабря"
+}
 
-def format_welcome_message() -> str:
-    """Возвращает приветственное сообщение главного меню."""
-    return (
-        "👋 Привет! Я погодный бот.\n\n"
-        "Выберите действие в меню ниже:\n"
-        "• 🌤 Узнать погоду сейчас\n"
-        "• 📅 Прогноз на 5 дней\n"
-        "• 📍 Погода по геолокации\n"
-        "• ℹ️ Помощь"
-    )
-
-
-def format_ask_city_message() -> str:
-    """Возвращает приглашение ввести город для текущей погоды."""
-    return "🏙 Введите название города (например: Москва):"
-
-
-def format_ask_forecast_city_message() -> str:
-    """Возвращает приглашение ввести город для прогноза."""
-    return "📅 Введите название города для прогноза на 5 дней (например: Казань):"
-
-
-def format_ask_geo_message() -> str:
-    """Возвращает приглашение отправить геолокацию или координаты текстом."""
-    return (
-        "📍 Отправьте геолокацию через интерфейс VK\n"
-        "или введите координаты текстом:\n"
-        "• 55.7558, 37.6173\n"
-        "• 55.7558 37.6173\n"
-        "• 55.7558,37.6173"
-    )
-
+def get_weather_info(weather_data: dict[str, Any]) -> tuple[str, str]:
+    """Возвращает кортеж (Эмодзи, Текст_описания) на основе детальных данных."""
+    desc = weather_data.get("description", "").lower()
+    main = weather_data.get("main", "")
+    
+    if "гроза" in desc or "ливень" in desc:
+        return "⛈️", desc
+    elif "дождь" in desc or "морось" in desc:
+        return "🌧️", desc
+    elif "снег" in desc:
+        return "❄️", desc
+    elif "ясно" in desc:
+        return "☀️", desc
+    elif "пасмурно" in desc:
+        return "☁️", desc
+    elif "облачно" in desc or "облачность" in desc:
+        return "⛅", desc
+    elif "туман" in desc or "дымка" in desc or "мгла" in desc:
+        return "🌫️", desc
+    
+    # Резервный маппинг по main
+    fallback_emojis = {
+        "Clear": "☀️",
+        "Clouds": "☁️",
+        "Rain": "🌧️",
+        "Drizzle": "🌧️",
+        "Thunderstorm": "⛈️",
+        "Snow": "❄️",
+    }
+    return fallback_emojis.get(main, "🌫️"), desc
 
 def format_weather_message(data: dict[str, Any], extended: bool = False) -> str:
-    """Форматирует ответ с текущей погодой.
+    """Форматирует данные о текущей погоде."""
+    try:
+        city = data.get("name", "Неизвестный город")
+        main_data = data.get("main", {})
+        weather_data = data.get("weather", [{}])[0]
+        wind = data.get("wind", {})
 
-    Args:
-        data: Словарь погоды из OpenWeatherAPI.
-        extended: Добавлять ли расширенные данные.
+        temp = int(round(main_data.get("temp", 0)))
+        temp_str = f"+{temp}" if temp > 0 else str(temp)
+        humidity = main_data.get("humidity", "--")
+        wind_speed = wind.get("speed", "--")
+        
+        emoji, desc = get_weather_info(weather_data)
 
-    Returns:
-        Готовый текст сообщения для пользователя.
-    """
-    lines: list[str] = [
-        f"🌤 Погода в {data.get('city', 'Неизвестно')}, {data.get('country', '')}",
-        "━━━━━━━━━━━━━━━━━━━━",
-        f"🌡 Температура: {data.get('temperature', '—')} (ощущается {data.get('feels_like', '—')})",
-        f"☁️ Описание: {data.get('weather_description', '—')}",
-        f"💧 Влажность: {data.get('humidity', '—')}%",
-        f"🌬 Ветер: {data.get('wind_speed', '—')}",
-    ]
-
-    if extended:
-        lines.extend(
-            [
-                f"🔻 Мин/Макс: {data.get('temp_min', '—')} / {data.get('temp_max', '—')}",
-                f"🧭 Давление: {data.get('pressure', '—')}",
-                f"👁 Видимость: {data.get('visibility', '—')}",
-            ]
-        )
-        sunrise = data.get("sunrise")
-        sunset = data.get("sunset")
-        if sunrise and sunset:
-            lines.append(f"🌅 Восход: {sunrise} | 🌇 Закат: {sunset}")
-
-        air_quality = data.get("air_quality")
-        if isinstance(air_quality, dict) and air_quality:
-            lines.extend(
-                [
-                    "",
-                    "🌫 Качество воздуха",
-                    "━━━━━━━━━━━━━━━━━━━━",
-                    f"Индекс AQI: {air_quality.get('aqi_index', '—')} ({air_quality.get('aqi_label_ru', '—')})",
-                    f"📝 Сводка: {air_quality.get('summary', '—')}",
-                    f"✅ Рекомендация: {air_quality.get('recommendation', '—')}",
-                ]
-            )
-
-    return "\n".join(lines)
-
+        res = [
+            f"🌍 Погода в: {city}",
+            f"{emoji} {desc.capitalize()}",
+            f"🌡 Температура: {temp_str}°C",
+            f"💧 Влажность: {humidity}%",
+            f"💨 Ветер: {wind_speed} м/с"
+        ]
+        return "\n".join(res)
+    except Exception as e:
+        return f"⚠ Ошибка форматирования: {e}"
 
 def format_forecast_message(data: dict[str, Any]) -> str:
-    """Форматирует прогноз на 5 дней.
+    """Форматирует компактный прогноз на 5 дней."""
+    try:
+        city_name = data.get("city", {}).get("name", "Неизвестный город")
+        forecast_list = data.get("list", [])
+        
+        if not forecast_list:
+            return "⚠ Данные прогноза отсутствуют."
 
-    Args:
-        data: Словарь прогноза из OpenWeatherAPI.
+        lines = [f"📅 Прогноз на 5 дней ({city_name}):"]
+        seen_days: set[str] = set()
+        
+        for item in forecast_list:
+            dt = datetime.fromtimestamp(item["dt"])
+            day_key = dt.strftime("%Y-%m-%d")
+            
+            # Игнорируем сегодня, берем следующие 5 дней в районе обеда
+            if day_key not in seen_days and 12 <= dt.hour <= 15:
+                seen_days.add(day_key)
+                
+                wd = WEEKDAYS[dt.weekday()]
+                month = MONTHS[dt.month]
+                temp = int(round(item["main"]["temp"]))
+                temp_str = f"+{temp}" if temp > 0 else str(temp)
+                
+                emoji, desc = get_weather_info(item["weather"][0])
+                
+                lines.append(f"• {wd}, {dt.day} {month}: {temp_str}°C — {emoji} {desc}")
 
-    Returns:
-        Готовый текст сообщения для пользователя.
-    """
-    lines: list[str] = [
-        f"📅 Прогноз на 5 дней для {data.get('city', 'Неизвестно')}, {data.get('country', '')}",
-        "━━━━━━━━━━━━━━━━━━━━",
-    ]
+            if len(seen_days) >= 5:
+                break
+        
+        return "\n".join(lines)
+    except Exception as e:
+        return f"⚠ Ошибка форматирования прогноза: {e}"
 
-    forecast_rows = data.get("forecast", [])
-    if isinstance(forecast_rows, list):
-        for row in forecast_rows:
-            lines.extend(
-                [
-                    f"📆 {row.get('date', '—')}",
-                    f"   🌡 {row.get('temperature', '—')} | ☁️ {row.get('weather_description', '—')}",
-                    (
-                        f"   💧 {row.get('humidity', '—')}% | "
-                        f"🌬 {row.get('wind_speed', '—')} | "
-                        f"🌧 {float(row.get('pop', 0.0)) * 100:.0f}%"
-                    ),
-                ]
-            )
+def format_today_forecast(data: dict[str, Any]) -> str:
+    """Форматирует прогноз на сегодня (утро, день, вечер)."""
+    try:
+        city_name = data.get("city", {}).get("name", "Неизвестный город")
+        forecast_list = data.get("list", [])
+        today_date = datetime.now().date()
+        
+        parts = {"Утро (09:00)": None, "День (15:00)": None, "Вечер (21:00)": None}
+        
+        for item in forecast_list:
+            dt = datetime.fromtimestamp(item["dt"])
+            if dt.date() != today_date:
+                continue
+            
+            hour = dt.hour
+            temp = int(round(item["main"]["temp"]))
+            temp_str = f"+{temp}" if temp > 0 else str(temp)
+            
+            emoji, desc = get_weather_info(item["weather"][0])
+            
+            val = f"{temp_str}°C — {emoji} {desc}"
+            if 8 <= hour <= 10: parts["Утро (09:00)"] = val
+            elif 14 <= hour <= 16: parts["День (15:00)"] = val
+            elif 20 <= hour <= 22: parts["Вечер (21:00)"] = val
 
-    sunrise = data.get("sunrise")
-    sunset = data.get("sunset")
-    if sunrise and sunset:
-        lines.append("")
-        lines.append(f"🌅 Восход: {sunrise} | 🌇 Закат: {sunset}")
-
-    return "\n".join(lines)
-
-
-def format_help_message() -> str:
-    """Возвращает справку по командам и кнопкам."""
-    return (
-        "ℹ️ Справка по боту\n\n"
-        "Доступные действия:\n"
-        "• 🌤 Погода сейчас — покажу текущую погоду по городу\n"
-        "• 📅 Прогноз на 5 дней — прогноз по городу\n"
-        "• 📍 Погода по геолокации — отправьте геометку или координаты\n\n"
-        "Поддерживаемые форматы координат:\n"
-        "• 55.7558, 37.6173\n"
-        "• 55.7558 37.6173\n"
-        "• 55.7558,37.6173\n\n"
-        "Для возврата используйте кнопки: 🔙 Назад или 🏠 Главное меню."
-    )
-
-
-def format_error_message(error_text: str) -> str:
-    """Форматирует сообщение об ошибке для пользователя.
-
-    Args:
-        error_text: Текст ошибки.
-
-    Returns:
-        Текст сообщения с emoji и пояснением.
-    """
-    return f"⚠️ Ошибка: {error_text}\nПопробуйте ещё раз или вернитесь в главное меню 🏠"
+        res = [f"📅 Прогноз на сегодня: {city_name}"]
+        for k, v in parts.items():
+            res.append(f"● {k}: {v if v else 'нет данных'}")
+            
+        return "\n".join(res)
+    except Exception as e:
+        return f"⚠ Ошибка форматирования: {e}"
