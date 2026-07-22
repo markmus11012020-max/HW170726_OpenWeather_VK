@@ -1,0 +1,27 @@
+# === docker-compose.yml ===
+# Запуск VK-бота погоды в Docker-контейнере.
+# Использование:
+#   1. Скопируйте .env.example в .env и заполните токен
+#   2. docker compose up -d --build
+#   3. Логи: docker compose logs -f
+# =======================
+
+services:
+  weather-vk-bot:
+    build: .
+    container_name: weather-vk-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Дублируем ключевые переменные, чтобы Compose знал о зависимостях
+      VK_BOT_TOKEN: ${VK_BOT_TOKEN:?VK_BOT_TOKEN обязателен}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:?OPENWEATHER_API_KEY обязателен}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    healthcheck:
+      # Простая проверка, что процесс ещё жив
+      test: ["CMD", "python", "-c", "import weather_vk_bot.bot"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
